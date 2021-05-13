@@ -1,0 +1,11 @@
+---
+apiVersion: image.toolkit.fluxcd.io/v1alpha2
+kind: ImageRepository
+metadata:
+  name: paymentservice
+  namespace: flux-system
+spec:
+  image: registry.deepfence.net/paymentservice
+  interval: 30s
+  secretRef:
+    name: registry.deepfence.net

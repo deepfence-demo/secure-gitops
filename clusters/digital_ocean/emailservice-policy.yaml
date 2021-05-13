@@ -1,0 +1,12 @@
+---
+apiVersion: image.toolkit.fluxcd.io/v1alpha2
+kind: ImagePolicy
+metadata:
+  name: emailservice
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: emailservice
+  policy:
+    semver:
+      range: '>=0.2.0 <0.3.0'

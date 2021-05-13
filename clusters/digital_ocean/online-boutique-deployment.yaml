@@ -1,0 +1,496 @@
+# Copyright 2018 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: adservice
+spec:
+  selector:
+    matchLabels:
+      app: adservice
+  template:
+    metadata:
+      labels:
+        app: adservice
+    spec:
+      containers:
+        - name: server
+          image: registry.deepfence.net/adservice:v0.2.2 # {"$imagepolicy":"flux-system:adservice"}
+          imagePullPolicy: Always
+          env:
+            - name: PORT
+              value: "9555"
+           #- name: DISABLE_STATS
+           #  value: "1"
+           #- name: DISABLE_TRACING
+           #  value: "1"
+           #- name: JAEGER_SERVICE_ADDR
+           #  value: "jaeger-collector:14268"
+          ports:
+            - name: grpc
+              containerPort: 9555
+          livenessProbe:
+            exec:
+              command: ["/bin/grpc_health_probe", "-addr=:9555"]
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          readinessProbe:
+            exec:
+              command: ["/bin/grpc_health_probe", "-addr=:9555"]
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          resources:
+            limits:
+              cpu: 300m
+              memory: 300Mi
+            requests:
+              cpu: 200m
+              memory: 180Mi
+      imagePullSecrets:
+        - name: registry.deepfence.net
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cartservice
+spec:
+  selector:
+    matchLabels:
+      app: cartservice
+  template:
+    metadata:
+      labels:
+        app: cartservice
+    spec:
+      containers:
+        - name: server
+          image: registry.deepfence.net/cartservice:v0.2.2 # {"$imagepolicy":"flux-system:cartservice"}
+          imagePullPolicy: Always
+          env:
+            - name: REDIS_ADDR
+              value: "redis-cart:6379"
+          ports:
+            - name: grpc
+              containerPort: 7070
+          livenessProbe:
+            exec:
+              command: ["/bin/grpc_health_probe", "-addr=:7070", "-rpc-timeout=5s"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["/bin/grpc_health_probe", "-addr=:7070", "-rpc-timeout=5s"]
+            initialDelaySeconds: 15
+          resources:
+            limits:
+              cpu: 300m
+              memory: 128Mi
+            requests:
+              cpu: 200m
+              memory: 64Mi
+      imagePullSecrets:
+        - name: registry.deepfence.net
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkoutservice
+spec:
+  selector:
+    matchLabels:
+      app: checkoutservice
+  template:
+    metadata:
+      labels:
+        app: checkoutservice
+    spec:
+      containers:
+        - name: server
+          image: registry.deepfence.net/checkoutservice:v0.2.2 # {"$imagepolicy":"flux-system:checkoutservice"}
+          imagePullPolicy: Always
+          env:
+            - name: PORT
+              value: "5050"
+           #- name: DISABLE_PROFILER
+           #  value: "1"
+           #- name: DISABLE_STATS
+           #  value: "1"
+           #- name: DISABLE_TRACING
+           #  value: "1"
+            - name: CART_SERVICE_ADDR
+              value: "cartservice:7070"
+            - name: CURRENCY_SERVICE_ADDR
+              value: "currencyservice:7000"
+            - name: EMAIL_SERVICE_ADDR
+              value: "emailservice:5000"
+           #- name: JAEGER_SERVICE_ADDR
+           #  value: "jaeger-collector:14268"
+            - name: PAYMENT_SERVICE_ADDR
+              value: "paymentservice:50051"
+            - name: PRODUCT_CATALOG_SERVICE_ADDR
+              value: "productcatalogservice:3550"
+            - name: SHIPPING_SERVICE_ADDR
+              value: "shippingservice:50051"
+          ports:
+            - name: grpc
+              containerPort: 5050
+          livenessProbe:
+            exec:
+              command: ["/bin/grpc_health_probe", "-addr=:5050"]
+          readinessProbe:
+            exec:
+              command: ["/bin/grpc_health_probe", "-addr=:5050"]
+          resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 64Mi
+      imagePullSecrets:
+        - name: registry.deepfence.net
+      serviceAccountName: default
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: currencyservice
+spec:
+  selector:
+    matchLabels:
+      app: currencyservice
+  template:
+    metadata:
+      labels:
+        app: currencyservice
+    spec:
+      containers:
+        - name: server
+          image: registry.deepfence.net/currencyservice:v0.2.2 # {"$imagepolicy":"flux-system:currencyservice"}
+          imagePullPolicy: Always
+          env:
+            - name: PORT
+              value: "7000"
+          #- name: DISABLE_DEBUGGER
+          #  value: "1"
+          #- name: DISABLE_PROFILER
+          #  value: "1"
+          #- name: DISABLE_TRACING
+          #  value: "1"
+          ports:
+            - name: grpc
+              containerPort: 7000
+          livenessProbe:
+            exec:
+              command: ["/bin/grpc_health_probe", "-addr=:7000"]
+          readinessProbe:
+            exec:
+              command: ["/bin/grpc_health_probe", "-addr=:7000"]
+          resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 64Mi
+      imagePullSecrets:
+        - name: registry.deepfence.net
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: emailservice
+spec:
+  selector:
+    matchLabels:
+      app: emailservice
+  template:
+    metadata:
+      labels:
+        app: emailservice
+    spec:
+      containers:
+        - name: server
+          image: registry.deepfence.net/emailservice:v0.2.2 # {"$imagepolicy":"flux-system:emailservice"}
+          imagePullPolicy: Always
+          env:
+            - name: PORT
+              value: "8080"
+            - name: DISABLE_PROFILER
+              value: "1"
+           #- name: DISABLE_TRACING
+           #  value: "1"
+          ports:
+            - name: grpc
+              containerPort: 8080
+          livenessProbe:
+            exec:
+              command: ["/bin/grpc_health_probe", "-addr=:8080"]
+            periodSeconds: 5
+          readinessProbe:
+            exec:
+              command: ["/bin/grpc_health_probe", "-addr=:8080"]
+            periodSeconds: 5
+          resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 64Mi
+      imagePullSecrets:
+        - name: registry.deepfence.net
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: paymentservice
+spec:
+  selector:
+    matchLabels:
+      app: paymentservice
+  template:
+    metadata:
+      labels:
+        app: paymentservice
+    spec:
+      containers:
+        - name: server
+          image: registry.deepfence.net/paymentservice:v0.2.2 # {"$imagepolicy":"flux-system:paymentservice"}
+          imagePullPolicy: Always
+          env:
+            - name: PORT
+              value: "50051"
+          ports:
+            - name: grpc
+              containerPort: 50051
+          livenessProbe:
+            exec:
+              command: ["/bin/grpc_health_probe", "-addr=:50051"]
+          readinessProbe:
+            exec:
+              command: ["/bin/grpc_health_probe", "-addr=:50051"]
+          resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 64Mi
+      imagePullSecrets:
+        - name: registry.deepfence.net
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: productcatalogservice
+spec:
+  selector:
+    matchLabels:
+      app: productcatalogservice
+  template:
+    metadata:
+      labels:
+        app: productcatalogservice
+    spec:
+      containers:
+        - name: server
+          image: registry.deepfence.net/productcatalogservice:v0.2.2 # {"$imagepolicy":"flux-system:productcatalogservice"}
+          imagePullPolicy: Always
+          env:
+            - name: PORT
+              value: "3550"
+           #- name: DISABLE_PROFILER
+           #  value: "1"
+           #- name: DISABLE_STATS
+           #  value: "1"
+           #- name: DISABLE_TRACING
+           #  value: "1"
+           #- name: JAEGER_SERVICE_ADDR
+           #  value: "jaeger-collector:14268"
+          ports:
+            - name: grpc
+              containerPort: 3550
+          livenessProbe:
+            exec:
+              command: ["/bin/grpc_health_probe", "-addr=:3550"]
+          readinessProbe:
+            exec:
+              command: ["/bin/grpc_health_probe", "-addr=:3550"]
+          resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 64Mi
+      imagePullSecrets:
+        - name: registry.deepfence.net
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recommendationservice
+spec:
+  selector:
+    matchLabels:
+      app: recommendationservice
+  template:
+    metadata:
+      labels:
+        app: recommendationservice
+    spec:
+      containers:
+        - name: server
+          image: registry.deepfence.net/recommendationservice:v0.2.2 # {"$imagepolicy":"flux-system:recommendationservice"}
+          imagePullPolicy: Always
+          env:
+            - name: PORT
+              value: "8080"
+           #- name: DISABLE_DEBUGGER
+           #  value: "1"
+           #- name: DISABLE_PROFILER
+           #  value: "1"
+           #- name: DISABLE_TRACING
+           #  value: "1"
+            - name: PRODUCT_CATALOG_SERVICE_ADDR
+              value: "productcatalogservice:3550"
+          ports:
+            - name: grpc
+              containerPort: 8080
+          livenessProbe:
+            exec:
+              command: ["/bin/grpc_health_probe", "-addr=:8080"]
+            periodSeconds: 5
+          readinessProbe:
+            exec:
+              command: ["/bin/grpc_health_probe", "-addr=:8080"]
+            periodSeconds: 5
+          resources:
+            limits:
+              cpu: 200m
+              memory: 450Mi
+            requests:
+              cpu: 100m
+              memory: 220Mi
+      imagePullSecrets:
+        - name: registry.deepfence.net
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-cart
+spec:
+  selector:
+    matchLabels:
+      app: redis-cart
+  template:
+    metadata:
+      labels:
+        app: redis-cart
+    spec:
+      containers:
+        - name: redis
+          image: redis:alpine
+          imagePullPolicy: Always
+          ports:
+            - name: redis
+              containerPort: 6379
+          livenessProbe:
+            periodSeconds: 5
+            tcpSocket:
+              port: 6379
+          readinessProbe:
+            periodSeconds: 5
+            tcpSocket:
+              port: 6379
+          resources:
+            limits:
+              memory: 256Mi
+              cpu: 125m
+            requests:
+              cpu: 70m
+              memory: 200Mi
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+      volumes:
+        - name: redis-data
+          emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shippingservice
+spec:
+  selector:
+    matchLabels:
+      app: shippingservice
+  template:
+    metadata:
+      labels:
+        app: shippingservice
+    spec:
+      containers:
+        - name: server
+          image: registry.deepfence.net/shippingservice:v0.2.2 # {"$imagepolicy":"flux-system:recommendationservice"}
+          imagePullPolicy: Always
+          env:
+            - name: PORT
+              value: "50051"
+           #- name: DISABLE_PROFILER
+           #  value: "1"
+           #- name: DISABLE_STATS
+           #  value: "1"
+           #- name: DISABLE_TRACING
+           #  value: "1"
+           #- name: JAEGER_SERVICE_ADDR
+           #  value: "jaeger-collector:14268"
+            - name: PRODUCT_CATALOG_SERVICE_ADDR
+              value: "3550"
+          ports:
+            - name: grpc
+              containerPort: 50051
+          livenessProbe:
+            exec:
+              command: ["/bin/grpc_health_probe", "-addr=:50051"]
+          readinessProbe:
+            exec:
+              command: ["/bin/grpc_health_probe", "-addr=:50051"]
+            periodSeconds: 5
+          resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 64Mi
+      imagePullSecrets:
+        - name: registry.deepfence.net
+      serviceAccountName: default
